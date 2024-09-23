@@ -2,7 +2,6 @@ package uniquejob
 
 import (
 	"context"
-	"errors"
 	"sync"
 )
 
@@ -36,7 +35,7 @@ func (job *Job[R, K]) registerSubscription(subscription *Subscription[R]) error 
 	defer job.m.Unlock()
 
 	if !job.subscribable {
-		return errors.New("can't subscribe anymore, job is already done")
+		return ErrorUnsubscribable
 	}
 
 	job.subscribers = append(job.subscribers, subscription)

@@ -2,8 +2,14 @@ package uniquejob
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync"
+)
+
+var (
+	ErrorJobAlreadyRegistered = fmt.Errorf("job already registered")
+	ErrorContextClosed        = fmt.Errorf("context closed")
+	ErrorUnsubscribable       = fmt.Errorf("unsubscriptable: job is already finished")
 )
 
 type ExecutorFunc[R any] func(context.Context) (R, error)
@@ -36,7 +42,7 @@ func (j *JobExecutor[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) 
 		return nil
 	}
 
-	return errors.New("job already registered")
+	return ErrorJobAlreadyRegistered
 }
 
 func (j *JobExecutor[R, K]) register(ctx context.Context, newJob *Job[R, K]) {

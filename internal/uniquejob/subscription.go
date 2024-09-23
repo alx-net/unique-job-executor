@@ -2,7 +2,6 @@ package uniquejob
 
 import (
 	"context"
-	"errors"
 	"sync"
 )
 
@@ -31,7 +30,7 @@ func (s *Subscription[R]) Subscribe(ctx context.Context) (R, error) {
 	case err := <-s.errorChannel:
 		return res, err
 	case <-ctx.Done():
-		return res, errors.New("context closed")
+		return res, ErrorContextClosed
 	}
 }
 
