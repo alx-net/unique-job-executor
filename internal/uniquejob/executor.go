@@ -5,21 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 )
 
 type Subscription[R any] struct {
-	Result  chan R
-	Error   chan error
-	timeout *time.Timer
-	m       sync.Mutex
+	result       chan R
+	errorChannel chan error
+	m            sync.Mutex
 }
 
 func NewSubscription[R any]() *Subscription[R] {
 	return &Subscription[R]{
-		Result:  make(chan R),
-		Error:   make(chan error),
-		timeout: time.NewTimer(20 * time.Second),
+		result:       make(chan R),
+		errorChannel: make(chan error),
 	}
 }
 
@@ -30,14 +27,12 @@ func (s *Subscription[R]) Subscribe(ctx context.Context) (R, error) {
 	defer s.close()
 
 	select {
-	case res = <-s.Result:
+	case res = <-s.result:
 		return res, nil
-	case err := <-s.Error:
+	case err := <-s.errorChannel:
 		return res, err
 	case <-ctx.Done():
 		return res, errors.New("context closed")
-	case <-s.timeout.C:
-		return res, errors.New("request subscription timed out")
 	}
 }
 
@@ -46,19 +41,19 @@ func (s *Subscription[R]) send(result R, err error) {
 	defer s.m.Unlock()
 
 	select {
-	case <-s.Result:
+	case <-s.result:
 		return
-	case <-s.Error:
+	case <-s.errorChannel:
 		return
 	default:
 	}
 
 	if err != nil {
-		s.Error <- err
+		s.errorChannel <- err
 		return
 	}
 
-	s.Result <- result
+	s.result <- result
 
 }
 
@@ -66,30 +61,30 @@ func (s *Subscription[R]) close() {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	close(s.Result)
-	close(s.Error)
+	close(s.result)
+	close(s.errorChannel)
 }
 
 type Job[R any, K comparable] struct {
-	Identifier   K
+	identifier   K
 	executor     func() (R, error)
-	Subscribers  []*Subscription[R]
-	Subscription *Subscription[R]
+	subscribers  []*Subscription[R]
+	subscription *Subscription[R]
 	subscribable bool
 	m            sync.RWMutex
 }
 
 func NewJob[R any, K comparable](identifier K, executor func() (R, error)) *Job[R, K] {
 	job := &Job[R, K]{
-		Identifier:   identifier,
+		identifier:   identifier,
 		executor:     executor,
-		Subscribers:  make([]*Subscription[R], 0, 6),
-		Subscription: NewSubscription[R](),
+		subscribers:  make([]*Subscription[R], 0, 6),
+		subscription: NewSubscription[R](),
 		subscribable: true,
 	}
 
 	// Each job has to subscribe to itself
-	job.Subscribers = append(job.Subscribers, job.Subscription)
+	job.subscribers = append(job.subscribers, job.subscription)
 
 	return job
 }
@@ -102,8 +97,8 @@ func (job *Job[R, K]) Subscribe(ctx context.Context, subscription *Subscription[
 	if !job.subscribable {
 		return errors.New("can't subscribe anymore, job is already done")
 	}
-	job.Subscribers = append(job.Subscribers, subscription)
-	fmt.Println("Subs", len(job.Subscribers))
+	job.subscribers = append(job.subscribers, subscription)
+	fmt.Println("Subs", len(job.subscribers))
 
 	return nil
 }
@@ -114,17 +109,17 @@ func (job *Job[R, K]) Run(ctx context.Context, onFinish func(s *Job[R, K])) {
 
 	onFinish(job)
 
-	job.sendResultToSubscribers(ctx, result, err)
+	job.sendResultToSubscribers(result, err)
 }
 
-func (job *Job[R, K]) sendResultToSubscribers(ctx context.Context, result R, err error) {
+func (job *Job[R, K]) sendResultToSubscribers(result R, err error) {
 
 	job.m.Lock()
 	defer job.m.Unlock()
 
 	job.subscribable = false
 
-	for _, sub := range job.Subscribers {
+	for _, sub := range job.subscribers {
 		sub.send(result, err)
 	}
 }
@@ -145,14 +140,14 @@ func (j *JobQueue[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) err
 	defer j.m.Unlock()
 
 	// Check again that no one registered this job yet
-	_, ok := j.workingSet[newJob.Identifier]
+	_, ok := j.workingSet[newJob.identifier]
 
 	if !ok {
 		// Start the job and delete job after the job is done
 		go newJob.Run(ctx, j.deleteJob)
 
 		// Register
-		j.workingSet[newJob.Identifier] = newJob
+		j.workingSet[newJob.identifier] = newJob
 
 		return nil
 	}
@@ -164,7 +159,7 @@ func (j *JobQueue[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 
 	j.m.RLock()
 	fmt.Println("Current jobs:", len(j.workingSet))
-	job, ok := j.workingSet[newJob.Identifier]
+	job, ok := j.workingSet[newJob.identifier]
 
 	// In case job doesn't exists yet
 	if !ok {
@@ -182,7 +177,7 @@ func (j *JobQueue[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 	} else {
 
 		// Try to subscribe
-		err := job.Subscribe(ctx, newJob.Subscription)
+		err := job.Subscribe(ctx, newJob.subscription)
 
 		j.m.RUnlock()
 
@@ -199,11 +194,11 @@ func (j *JobQueue[R, K]) Execute(ctx context.Context, newJob *Job[R, K]) *Subscr
 	j.Register(ctx, newJob)
 
 	// Return jobs subscription
-	return newJob.Subscription
+	return newJob.subscription
 }
 
 func (j *JobQueue[R, K]) deleteJob(job *Job[R, K]) {
 	j.m.Lock()
 	defer j.m.Unlock()
-	delete(j.workingSet, job.Identifier)
+	delete(j.workingSet, job.identifier)
 }
