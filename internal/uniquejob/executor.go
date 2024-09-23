@@ -128,7 +128,7 @@ type JobExecutor[R any, K comparable] struct {
 }
 
 // K is a unique key type
-func NewJobQueue[R any, K comparable]() *JobExecutor[R, K] {
+func NewJobExecutor[R any, K comparable]() *JobExecutor[R, K] {
 	return &JobExecutor[R, K]{workingSet: make(map[K]*Job[R, K])}
 }
 
