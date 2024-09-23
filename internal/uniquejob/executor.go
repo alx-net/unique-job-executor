@@ -3,7 +3,6 @@ package uniquejob
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 )
 
@@ -98,7 +97,6 @@ func (job *Job[R, K]) Subscribe(ctx context.Context, subscription *Subscription[
 		return errors.New("can't subscribe anymore, job is already done")
 	}
 	job.subscribers = append(job.subscribers, subscription)
-	fmt.Println("Subs", len(job.subscribers))
 
 	return nil
 }
@@ -158,7 +156,6 @@ func (j *JobQueue[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) err
 func (j *JobQueue[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 
 	j.m.RLock()
-	fmt.Println("Current jobs:", len(j.workingSet))
 	job, ok := j.workingSet[newJob.identifier]
 
 	// In case job doesn't exists yet
