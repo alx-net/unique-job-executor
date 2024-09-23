@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+type ExecutorFunc[R any] func(context.Context) (R, error)
+
 type Subscription[R any] struct {
 	result       chan R
 	errorChannel chan error
@@ -66,14 +68,14 @@ func (s *Subscription[R]) close() {
 
 type Job[R any, K comparable] struct {
 	identifier   K
-	executor     func() (R, error)
+	executor     ExecutorFunc[R]
 	subscribers  []*Subscription[R]
 	subscription *Subscription[R]
 	subscribable bool
 	m            sync.RWMutex
 }
 
-func NewJob[R any, K comparable](identifier K, executor func() (R, error)) *Job[R, K] {
+func NewJob[R any, K comparable](identifier K, executor ExecutorFunc[R]) *Job[R, K] {
 	job := &Job[R, K]{
 		identifier:   identifier,
 		executor:     executor,
@@ -88,7 +90,7 @@ func NewJob[R any, K comparable](identifier K, executor func() (R, error)) *Job[
 	return job
 }
 
-func (job *Job[R, K]) Subscribe(ctx context.Context, subscription *Subscription[R]) error {
+func (job *Job[R, K]) registerSubscription(subscription *Subscription[R]) error {
 
 	job.m.Lock()
 	defer job.m.Unlock()
@@ -96,14 +98,15 @@ func (job *Job[R, K]) Subscribe(ctx context.Context, subscription *Subscription[
 	if !job.subscribable {
 		return errors.New("can't subscribe anymore, job is already done")
 	}
+
 	job.subscribers = append(job.subscribers, subscription)
 
 	return nil
 }
 
-func (job *Job[R, K]) Run(ctx context.Context, onFinish func(s *Job[R, K])) {
+func (job *Job[R, K]) run(ctx context.Context, onFinish func(s *Job[R, K])) {
 
-	result, err := job.executor()
+	result, err := job.executor(ctx)
 
 	onFinish(job)
 
@@ -142,7 +145,7 @@ func (j *JobExecutor[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) 
 
 	if !ok {
 		// Start the job and delete job after the job is done
-		go newJob.Run(ctx, j.deleteJob)
+		go newJob.run(ctx, j.deleteJob)
 
 		// Register
 		j.workingSet[newJob.identifier] = newJob
@@ -153,7 +156,7 @@ func (j *JobExecutor[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) 
 	return errors.New("job already registered")
 }
 
-func (j *JobExecutor[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
+func (j *JobExecutor[R, K]) register(ctx context.Context, newJob *Job[R, K]) {
 
 	j.m.RLock()
 	job, ok := j.workingSet[newJob.identifier]
@@ -169,18 +172,18 @@ func (j *JobExecutor[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 			return
 		}
 
-		j.Register(ctx, newJob)
+		j.register(ctx, newJob)
 
 	} else {
 
 		// Try to subscribe
-		err := job.Subscribe(ctx, newJob.subscription)
+		err := job.registerSubscription(newJob.subscription)
 
 		j.m.RUnlock()
 
 		// In case subscription failed try again
 		if err != nil {
-			j.Register(ctx, newJob)
+			j.register(ctx, newJob)
 		}
 	}
 
@@ -188,7 +191,7 @@ func (j *JobExecutor[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 
 func (j *JobExecutor[R, K]) Execute(ctx context.Context, newJob *Job[R, K]) *Subscription[R] {
 	// Register job
-	j.Register(ctx, newJob)
+	j.register(ctx, newJob)
 
 	// Return jobs subscription
 	return newJob.subscription
