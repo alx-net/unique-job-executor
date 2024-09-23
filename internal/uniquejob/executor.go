@@ -122,17 +122,17 @@ func (job *Job[R, K]) sendResultToSubscribers(result R, err error) {
 	}
 }
 
-type JobQueue[R any, K comparable] struct {
+type JobExecutor[R any, K comparable] struct {
 	workingSet map[K]*Job[R, K]
 	m          sync.RWMutex
 }
 
 // K is a unique key type
-func NewJobQueue[R any, K comparable]() *JobQueue[R, K] {
-	return &JobQueue[R, K]{workingSet: make(map[K]*Job[R, K])}
+func NewJobQueue[R any, K comparable]() *JobExecutor[R, K] {
+	return &JobExecutor[R, K]{workingSet: make(map[K]*Job[R, K])}
 }
 
-func (j *JobQueue[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) error {
+func (j *JobExecutor[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) error {
 	// Only allow one thread to register a job
 	j.m.Lock()
 	defer j.m.Unlock()
@@ -153,7 +153,7 @@ func (j *JobQueue[R, K]) startNewJob(ctx context.Context, newJob *Job[R, K]) err
 	return errors.New("job already registered")
 }
 
-func (j *JobQueue[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
+func (j *JobExecutor[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 
 	j.m.RLock()
 	job, ok := j.workingSet[newJob.identifier]
@@ -186,7 +186,7 @@ func (j *JobQueue[R, K]) Register(ctx context.Context, newJob *Job[R, K]) {
 
 }
 
-func (j *JobQueue[R, K]) Execute(ctx context.Context, newJob *Job[R, K]) *Subscription[R] {
+func (j *JobExecutor[R, K]) Execute(ctx context.Context, newJob *Job[R, K]) *Subscription[R] {
 	// Register job
 	j.Register(ctx, newJob)
 
@@ -194,7 +194,7 @@ func (j *JobQueue[R, K]) Execute(ctx context.Context, newJob *Job[R, K]) *Subscr
 	return newJob.subscription
 }
 
-func (j *JobQueue[R, K]) deleteJob(job *Job[R, K]) {
+func (j *JobExecutor[R, K]) deleteJob(job *Job[R, K]) {
 	j.m.Lock()
 	defer j.m.Unlock()
 	delete(j.workingSet, job.identifier)
