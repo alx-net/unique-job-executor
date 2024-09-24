@@ -14,23 +14,24 @@ import (
 )
 
 type Response struct {
-	Result string `json:"result"`
+	Result interface{} `json:"result"`
 }
 
 type JobExecutor struct {
 	*uniquejob.JobExecutor[Response, uint64]
 }
 
-type WrapperFunc func(int64) Response
+type WrapperFunc func(int64) (Response, error)
 
-func routes(executor JobExecutor) {
+func Routes() {
 	r := mux.NewRouter()
+	executor := JobExecutor{uniquejob.NewJobExecutor[Response, uint64]()}
 
 	r.HandleFunc("/fib/{num}", handleRequest(executor, fibonacciWrapper)).Methods("GET")
 	r.HandleFunc("/isprime/{num}", handleRequest(executor, isPrimeWrapper)).Methods("GET")
 	r.Use(validationMiddleware)
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(":8088", r))
 }
 
 func validate(vars map[string]string) error {
@@ -85,7 +86,7 @@ func handleJob(
 
 	job := uniquejob.NewJob(identifier,
 		func(ctx context.Context) (Response, error) {
-			return next(num), nil
+			return next(num)
 		},
 	)
 
@@ -106,10 +107,11 @@ func encodeRequest(w http.ResponseWriter, response Response) error {
 	return nil
 }
 
-func fibonacciWrapper(num int64) Response {
-	return Response{Result: fmt.Sprint(utils.Fibonacci(num))}
+func fibonacciWrapper(num int64) (Response, error) {
+	res, err := utils.Fibonacci(num)
+	return Response{Result: res}, err
 }
 
-func isPrimeWrapper(num int64) Response {
-	return Response{Result: fmt.Sprint(utils.IsPrime(num))}
+func isPrimeWrapper(num int64) (Response, error) {
+	return Response{Result: utils.IsPrime(num)}, nil
 }
