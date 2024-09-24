@@ -1,18 +1,31 @@
 package utils
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"strings"
 
-func Fibonacci(n int) uint64 {
-	a, b := uint64(0), uint64(1)
+	"github.com/JohnCGriffin/overflow"
+	"github.com/cespare/xxhash"
+)
+
+func Fibonacci(n int64) (int64, error) {
+	a, b := int64(0), int64(1)
 
 	if n < 1 {
-		return a
+		return a, nil
 	}
 
-	for i := 0; i < n; i++ {
-		b, a = a+b, b
+	for i := int64(0); i < n; i++ {
+
+		res, ok := overflow.Add64(a, b)
+
+		if !ok {
+			return 0, fmt.Errorf("integer overflow")
+		}
+		b, a = res, b
 	}
-	return a
+	return a, nil
 }
 
 func IsPrime(p int64) bool {
@@ -27,4 +40,8 @@ func IsPrime(p int64) bool {
 	}
 
 	return true
+}
+
+func HashFromStrings(args ...string) uint64 {
+	return xxhash.Sum64([]byte(strings.Join(args, "")))
 }

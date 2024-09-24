@@ -8,10 +8,12 @@ import (
 
 func TestFibonacci(t *testing.T) {
 
-	expected := []uint64{0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55}
+	expected := []int64{0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55}
 
 	for i, el := range expected {
-		assert.Equal(t, el, Fibonacci(i))
+		actual, err := Fibonacci(int64(i))
+		assert.NoError(t, err)
+		assert.Equal(t, el, actual)
 	}
 }
 
