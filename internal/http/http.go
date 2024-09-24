@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/alx-net/concurrent-task-executor/internal/uniquejob"
 	"github.com/alx-net/concurrent-task-executor/internal/utils"
@@ -14,7 +15,8 @@ import (
 )
 
 type Response struct {
-	Result interface{} `json:"result"`
+	Result   interface{} `json:"result"`
+	Duration float64     `json:"duration"`
 }
 
 type JobExecutor struct {
@@ -61,13 +63,15 @@ func handleRequest(executor JobExecutor, next WrapperFunc) http.HandlerFunc {
 		num, _ := strconv.ParseInt(vars["num"], 10, 64)
 
 		identifier := utils.HashFromStrings(r.RequestURI, vars["num"])
-
+		t := time.Now()
 		res, err := handleJob(r.Context(), executor, identifier, num, next)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
+
+		res.Duration = time.Since(t).Seconds()
 
 		err = encodeRequest(w, res)
 
@@ -86,6 +90,8 @@ func handleJob(
 
 	job := uniquejob.NewJob(identifier,
 		func(ctx context.Context) (Response, error) {
+			// Artificially increase job duration
+			<-time.After(5 * time.Second)
 			return next(num)
 		},
 	)
