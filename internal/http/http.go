@@ -33,7 +33,7 @@ func Routes() {
 	r.HandleFunc("/isprime/{num}", handleRequest(executor, isPrimeWrapper)).Methods("GET")
 	r.Use(validationMiddleware)
 
-	log.Fatal(http.ListenAndServe(":8088", r))
+	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
 func validate(vars map[string]string) error {
