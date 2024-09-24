@@ -1,10 +1,12 @@
+# Unique Job Executor
+
 This repository contains a Go application that implements a function/job scheduler allowing for unique job execution. The core idea is to prevent multiple executions of the same job with identical parameters and instead allow clients to subscribe to ongoing jobs.
 
 This is not a cache! When a job is finished, clients can't subscribe to the results, instead the first request after the job is done will restart the job.
 
 ![Alt text](./images/single.png)
 
-## Example Implementation
+## Example HTTP Server Implementation
 - Job Execution Time: Each job in this example takes 5 seconds to complete. Any requests made with the same parameters within these 5 seconds will subscribe to the result of the first job. This ensures that no duplicate jobs are created, and all clients receive the same result.
 - Job Uniqueness: A job is defined by a unique identifier composed of its name and parameters (request_uri + args). If multiple clients request a job with the same identifier while it is still running, they will all receive the same result once it completes.
 In this example implementation there are two types of jobs:
