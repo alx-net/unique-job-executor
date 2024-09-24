@@ -11,7 +11,7 @@ import (
 func TestJobExecution(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	executor := func(context.Context) (int, error) {
 		return 42, nil

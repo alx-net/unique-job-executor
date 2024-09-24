@@ -11,7 +11,7 @@ import (
 
 func TestSubscriptionSend(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	sub := NewSubscription[int]()
 
 	go sub.send(42, errors.New("test error"))
