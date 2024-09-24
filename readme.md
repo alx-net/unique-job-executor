@@ -1,5 +1,7 @@
 This repository contains a Go application that implements a function/job scheduler allowing for unique job execution. The core idea is to prevent multiple executions of the same job with identical parameters and instead allow clients to subscribe to ongoing jobs.
 
+This is not a cache! When a job is finished, clients can't subscribe to the results, instead the first request after the job is done will restart the job.
+
 ![Alt text](./images/single.png)
 
 ## Example Implementation
