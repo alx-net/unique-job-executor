@@ -25,15 +25,15 @@ type JobExecutor struct {
 
 type WrapperFunc func(int64) (Response, error)
 
-func Routes() {
+func Routes(port int, minJobDuration time.Duration) {
 	r := mux.NewRouter()
 	executor := JobExecutor{uniquejob.NewJobExecutor[Response, uint64]()}
 
 	r.Use(validationMiddleware)
-	r.HandleFunc("/fib/{num}", handleRequest(executor, fibonacciWrapper)).Methods("GET")
-	r.HandleFunc("/isprime/{num}", handleRequest(executor, isPrimeWrapper)).Methods("GET")
+	r.HandleFunc("/fib/{num}", handleRequest(executor, delayWrapper(fibonacciWrapper, minJobDuration))).Methods("GET")
+	r.HandleFunc("/isprime/{num}", handleRequest(executor, delayWrapper(isPrimeWrapper, minJobDuration))).Methods("GET")
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(fmt.Sprint("localhost:", port), r))
 }
 
 func validate(vars map[string]string) error {
@@ -94,8 +94,6 @@ func handleJob(
 
 	job := uniquejob.NewJob(identifier,
 		func(ctx context.Context) (Response, error) {
-			// Artificially increase job duration
-			<-time.After(5 * time.Second)
 			return next(num)
 		},
 	)
@@ -115,6 +113,14 @@ func encodeRequest(w http.ResponseWriter, response Response) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(encResponse)
 	return nil
+}
+
+func delayWrapper(f WrapperFunc, delay time.Duration) WrapperFunc {
+	return func(num int64) (Response, error) {
+		// Artificially increase job duration
+		<-time.After(delay * time.Second)
+		return f(num)
+	}
 }
 
 func fibonacciWrapper(num int64) (Response, error) {
