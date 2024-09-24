@@ -29,9 +29,9 @@ func Routes() {
 	r := mux.NewRouter()
 	executor := JobExecutor{uniquejob.NewJobExecutor[Response, uint64]()}
 
+	r.Use(validationMiddleware)
 	r.HandleFunc("/fib/{num}", handleRequest(executor, fibonacciWrapper)).Methods("GET")
 	r.HandleFunc("/isprime/{num}", handleRequest(executor, isPrimeWrapper)).Methods("GET")
-	r.Use(validationMiddleware)
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
@@ -52,7 +52,11 @@ func validate(vars map[string]string) error {
 func validationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		validate(vars)
+		err := validate(vars)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
