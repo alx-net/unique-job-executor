@@ -21,8 +21,11 @@ When the http wrapper is ignored it comes down to the `internal/uniquejob` packa
 	executor := NewJobExecutor[ResponseType, IdentifierType]() // Define the response type and the identifier type
 	ctx := context.Background()
 	jobIndentifier := IdentifierType("myJob")
+
+    // Job
 	jobFunc := func(context.Context) (ResponseType, error) {
-		return 42, nil
+		// Do some heavy computations
+        return 42, nil
 	}
 	// Create new job
 	myJob := NewJob(jobIndentifier, jobFunc)
