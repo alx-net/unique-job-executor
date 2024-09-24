@@ -8,7 +8,7 @@ import (
 )
 
 func TestJobExecutorExecute(t *testing.T) {
-	manager := NewJobExecutor[int, string]()
+	executor := NewJobExecutor[int, string]()
 	ctx := context.Background()
 	jobIndentifier := "myJob"
 	block := make(chan int)
@@ -25,8 +25,8 @@ func TestJobExecutorExecute(t *testing.T) {
 	myJob1 := NewJob(jobIndentifier, jobFunc1)
 	myJob2 := NewJob(jobIndentifier, jobFunc2)
 
-	subscription1 := manager.Execute(ctx, myJob1)
-	subscription2 := manager.Execute(ctx, myJob2)
+	subscription1 := executor.Execute(ctx, myJob1)
+	subscription2 := executor.Execute(ctx, myJob2)
 
 	block <- 1
 
