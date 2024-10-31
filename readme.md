@@ -1,3 +1,7 @@
+# Run
+`go run main.go`
+This command starts a HTTP server on port 8080
+
 # Unique Job Executor
 
 This repository contains a Go application that implements a function/job scheduler allowing for unique job execution. The core idea is to prevent multiple executions of the same job with identical parameters and instead allow clients to subscribe to ongoing jobs.
