@@ -1,6 +1,11 @@
 # Run
-`go run main.go`
 This command starts a HTTP server on port 8080
+
+`go mod tidy`
+
+`go run main.go`
+
+
 
 # Unique Job Executor
 
